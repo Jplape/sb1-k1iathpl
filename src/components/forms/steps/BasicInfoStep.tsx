@@ -19,7 +19,32 @@ export function BasicInfoStep() {
         .order('name');
 
       if (error) throw error;
-      return data;
+      
+      // Traduction des catégories principales
+      const translatedCategories = data.map(category => {
+        const translations: Record<string, string> = {
+          'Electronics': 'Électronique-informatique',
+          'Furniture': 'Meubles',
+          'Clothing': 'Vêtements',
+          'Vehicles': 'Véhicules',
+          'Real Estate': 'Immobilier',
+          'Home & Garden': 'Maison et Jardin',
+          'Fashion': 'Mode',
+          'Barter': 'Troc',
+          'Sports & Leisure': 'Sport & Loisirs',
+          'Services': 'Services',
+          'Jobs': 'Emploi',
+          'Other': 'Autre',
+          'Autre': 'Autre'  // Ajout pour couvrir différentes variantes
+        };
+        
+        return {
+          ...category,
+          name: translations[category.name] || category.name
+        };
+      });
+
+      return translatedCategories;
     },
   });
 

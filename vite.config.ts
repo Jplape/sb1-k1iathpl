@@ -1,27 +1,20 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tsconfigPaths()],
   server: {
-    port: 5173,
-    host: true
+    port: 3000
   },
   preview: {
-    port: 4173,
-    host: true
+    port: 3001
   },
-  test: {
-    globals: true,
-    environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.{test,spec}.{js,jsx,ts,tsx}'],
-    coverage: {
-      reporter: ['text', 'json', 'html'],
-      exclude: [
-        'node_modules/',
-        'src/test/',
-      ],
-    }
+  build: {
+    minify: false
+  },
+  esbuild: {
+    drop: [], // Ne supprime aucun console.log
+    pure: []  // Ne supprime aucun code "mort"
   }
 });

@@ -1,5 +1,11 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import {
+  createBrowserRouter,
+  RouterProvider,
+  createRoutesFromElements,
+  Route,
+  Outlet
+} from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GoogleReCaptchaProvider } from 'react-google-recaptcha-v3';
@@ -23,6 +29,8 @@ import { AuthCallback } from './pages/auth/AuthCallback';
 import { ResetPassword } from './pages/auth/ResetPassword';
 import { Watchlist } from './pages/Watchlist';
 import { TermsOfService } from './pages/legal/TermsOfService';
+import LoginPage from './pages/auth/LoginPage';
+import { EmailConfirmationPage } from './pages/auth/EmailConfirmationPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,9 +58,9 @@ function App() {
         }}
       >
         <AuthProvider>
-          <Router>
-            <Layout>
-              <Routes>
+          <RouterProvider router={createBrowserRouter(
+            createRoutesFromElements(
+              <Route element={<Layout><Outlet /></Layout>}>
                 {/* Public routes */}
                 <Route path="/" element={<Home />} />
                 <Route path="/search" element={<Search />} />
@@ -60,6 +68,7 @@ function App() {
                 <Route path="/auth/callback" element={<AuthCallback />} />
                 <Route path="/auth/reset-password" element={<ResetPassword />} />
                 <Route path="/terms" element={<TermsOfService />} />
+                <Route path="/login" element={<LoginPage />} />
                 
                 {/* Protected routes */}
                 <Route path="/create-ad" element={<CreateAd />} />
@@ -69,6 +78,7 @@ function App() {
                 <Route path="/messages" element={<Messages />} />
                 <Route path="/messages/:conversationId" element={<Messages />} />
                 <Route path="/watchlist" element={<Watchlist />} />
+                <Route path="/auth/confirm" element={<EmailConfirmationPage />} />
 
                 {/* Pro routes */}
                 <Route
@@ -91,9 +101,13 @@ function App() {
                     </AdminGuard>
                   }
                 />
-              </Routes>
-            </Layout>
-          </Router>
+              </Route>
+            ), {
+              future: {
+                // future flags removed for React Router v6 compatibility
+              }
+            })}
+          />
           <Toaster position="top-right" />
         </AuthProvider>
       </GoogleReCaptchaProvider>

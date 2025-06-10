@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { CountrySelect } from '../../components/ui/CountrySelect';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -155,6 +156,7 @@ export function KYC() {
               type="text"
               {...register('address')}
               className="w-full rounded-lg border-gray-300"
+              autoComplete="address-line1"
             />
             {errors.address && (
               <p className="mt-1 text-sm text-red-600">{errors.address.message}</p>
@@ -180,6 +182,7 @@ export function KYC() {
                 type="text"
                 {...register('postalCode')}
                 className="w-full rounded-lg border-gray-300"
+                autoComplete="postal-code"
               />
               {errors.postalCode && (
                 <p className="mt-1 text-sm text-red-600">{errors.postalCode.message}</p>
@@ -189,16 +192,10 @@ export function KYC() {
 
           <div>
             <label className="block text-sm font-medium mb-1">Pays</label>
-            <select
+            <CountrySelect
               {...register('country')}
-              className="w-full rounded-lg border-gray-300"
-            >
-              <option value="">Sélectionnez un pays</option>
-              <option value="FR">France</option>
-              <option value="BE">Belgique</option>
-              <option value="CH">Suisse</option>
-              <option value="LU">Luxembourg</option>
-            </select>
+              defaultValue="GA"
+            />
             {errors.country && (
               <p className="mt-1 text-sm text-red-600">{errors.country.message}</p>
             )}

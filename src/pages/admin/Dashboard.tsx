@@ -15,16 +15,12 @@ import { format } from 'date-fns';
 import {
   TrendingUp,
   Users,
-  ShoppingBag,
   Clock,
-  Star,
   AlertTriangle,
   Loader2,
   Search,
-  Filter,
   ChevronDown,
   ChevronUp,
-  Ban,
   CheckCircle,
   XCircle,
   Download,
@@ -32,6 +28,9 @@ import {
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/Button';
 import { supabase } from '../../lib/supabase';
+import type { Tables } from '../../types/supabase';
+type AuthLog = Tables<'auth_logs'>;
+type ModAction = Tables<'moderation_actions'>;
 
 interface AdminStats {
   revenue: {
@@ -56,24 +55,70 @@ interface AdminStats {
     flaggedUsers: number;
     suspiciousActivity: number;
   };
-}
-
-interface ModAction {
-  id: string;
-  type: 'approval' | 'rejection' | 'ban';
-  targetId: string;
-  reason: string;
-  adminId: string;
-  timestamp: string;
-  riskScore: number;
+  auth: {
+    totalAttempts: number;
+    failedAttempts: number;
+    suspiciousAttempts: number;
+  };
 }
 
 const columnHelper = createColumnHelper<ModAction>();
+const authLogColumnHelper = createColumnHelper<AuthLog>();
+
+const authLogColumns = [
+  authLogColumnHelper.accessor('timestamp', {
+    header: 'Date',
+    cell: (info) => {
+      const value = info.getValue();
+      return value && typeof value === 'string' && !isNaN(new Date(value).getTime())
+        ? format(new Date(value), 'dd/MM/yyyy HH:mm')
+        : '-';
+    },
+  }),
+  authLogColumnHelper.accessor('email', {
+    id: 'email',
+    header: 'Email',
+  }),
+  authLogColumnHelper.accessor('status', {
+    header: 'Status',
+    cell: (info) => (
+      <span className={`capitalize ${
+        info.getValue() === 'success' ? 'text-green-600' :
+        info.getValue() === 'failed' ? 'text-red-600' :
+        'text-blue-600'
+      }`}>
+        {info.getValue() || 'attempt'}
+      </span>
+    ),
+  }),
+  authLogColumnHelper.accessor('error_type', {
+    id: 'error_type',
+    header: 'Error Type',
+  }),
+  authLogColumnHelper.accessor('email_confirmed', {
+    id: 'email_confirmed',
+    header: 'Email Confirmed',
+    cell: (info) => (
+      info.getValue() ?
+        <CheckCircle className="w-5 h-5 text-green-500" /> :
+        <XCircle className="w-5 h-5 text-red-500" />
+    ),
+  }),
+  authLogColumnHelper.accessor('attempt_count', {
+    id: 'attempt_count',
+    header: 'Attempts',
+  }),
+];
 
 const columns = [
-  columnHelper.accessor('timestamp', {
+  columnHelper.accessor('created_at', {
     header: 'Date',
-    cell: (info) => format(new Date(info.getValue()), 'dd/MM/yyyy HH:mm'),
+    cell: (info) => {
+      const value = info.getValue();
+      return value && !isNaN(new Date(value).getTime())
+        ? format(new Date(value), 'dd/MM/yyyy HH:mm')
+        : '-';
+    },
   }),
   columnHelper.accessor('type', {
     header: 'Action',
@@ -87,18 +132,18 @@ const columns = [
       </span>
     ),
   }),
-  columnHelper.accessor('riskScore', {
+  columnHelper.accessor('risk_score', {
     header: 'Risk Score',
     cell: (info) => (
       <div className="flex items-center">
         <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
           <div
             className={`h-2 rounded-full ${
-              info.getValue() > 75 ? 'bg-red-500' :
-              info.getValue() > 50 ? 'bg-yellow-500' :
+              (info.getValue() || 0) > 75 ? 'bg-red-500' :
+              (info.getValue() || 0) > 50 ? 'bg-yellow-500' :
               'bg-green-500'
             }`}
-            style={{ width: `${info.getValue()}%` }}
+            style={{ width: `${info.getValue() || 0}%` }}
           />
         </div>
         <span>{info.getValue()}</span>
@@ -107,14 +152,16 @@ const columns = [
   }),
   columnHelper.accessor('reason', {
     header: 'Reason',
-    cell: (info) => info.getValue(),
+    cell: (info) => info.getValue() || '-',
   }),
 ];
 
 export function AdminDashboard() {
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [authLogSorting, setAuthLogSorting] = useState<SortingState>([]);
   const [filterValue, setFilterValue] = useState('');
   const [actionType, setActionType] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<'moderation'|'auth'>('moderation');
 
   const { data: stats, isLoading: loadingStats } = useQuery({
     queryKey: ['admin-stats'],
@@ -122,6 +169,29 @@ export function AdminDashboard() {
       const { data, error } = await supabase.rpc('get_admin_stats');
       if (error) throw error;
       return data as AdminStats;
+    },
+  });
+
+  const { data: authLogs = [], isLoading: loadingAuthLogs } = useQuery({
+    queryKey: ['auth-logs'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('auth_logs')
+        .select('*')
+        .order('timestamp', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: authStats } = useQuery({
+    queryKey: ['auth-stats'],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('analyze-auth-logs');
+      if (error) throw error;
+      return data;
     },
   });
 
@@ -143,8 +213,19 @@ export function AdminDashboard() {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data as ModAction[];
+      return data;
     },
+  });
+
+  const authLogTable = useReactTable({
+    data: authLogs,
+    columns: authLogColumns,
+    state: { sorting: authLogSorting },
+    onSortingChange: setAuthLogSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
   });
 
   const table = useReactTable({
@@ -228,7 +309,7 @@ export function AdminDashboard() {
     }
   };
 
-  if (loadingStats || loadingActions) {
+  if (loadingStats || loadingActions || loadingAuthLogs) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
@@ -238,15 +319,30 @@ export function AdminDashboard() {
 
   return (
     <div className="space-y-6">
+      <div className="flex border-b border-gray-200 dark:border-gray-700">
+        <button
+          className={`px-4 py-2 font-medium text-sm ${activeTab === 'moderation' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}
+          onClick={() => setActiveTab('moderation')}
+        >
+          Moderation
+        </button>
+        <button
+          className={`px-4 py-2 font-medium text-sm ${activeTab === 'auth' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}
+          onClick={() => setActiveTab('auth')}
+        >
+          Authentication Logs
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-500">Revenue (30j)</p>
             <TrendingUp className="w-5 h-5 text-gray-400" />
           </div>
-          <p className="text-2xl font-semibold">{stats?.revenue.total.toFixed(2)}€</p>
-          <p className={`text-sm ${stats?.revenue.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {stats?.revenue.growth > 0 ? '+' : ''}{stats?.revenue.growth}%
+          <p className="text-2xl font-semibold">{stats?.revenue?.total?.toFixed(2) || '0.00'}€</p>
+          <p className={`text-sm ${(stats?.revenue?.growth || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {(stats?.revenue?.growth || 0) > 0 ? '+' : ''}{stats?.revenue?.growth || 0}%
           </p>
         </div>
 
@@ -255,8 +351,8 @@ export function AdminDashboard() {
             <p className="text-sm text-gray-500">Active Users</p>
             <Users className="w-5 h-5 text-gray-400" />
           </div>
-          <p className="text-2xl font-semibold">{stats?.users.active}</p>
-          <p className="text-sm text-gray-500">sur {stats?.users.total} total</p>
+          <p className="text-2xl font-semibold">{stats?.users?.active || 0}</p>
+          <p className="text-sm text-gray-500">sur {stats?.users?.total || 0} total</p>
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 space-y-2">
@@ -264,9 +360,9 @@ export function AdminDashboard() {
             <p className="text-sm text-gray-500">Pending Reviews</p>
             <Clock className="w-5 h-5 text-gray-400" />
           </div>
-          <p className="text-2xl font-semibold">{stats?.content.pending}</p>
+          <p className="text-2xl font-semibold">{stats?.content?.pending || 0}</p>
           <p className="text-sm text-yellow-600">
-            {stats?.content.flagged} flagged
+            {stats?.content?.flagged || 0} flagged
           </p>
         </div>
 
@@ -275,15 +371,16 @@ export function AdminDashboard() {
             <p className="text-sm text-gray-500">Risk Score</p>
             <AlertTriangle className="w-5 h-5 text-gray-400" />
           </div>
-          <p className="text-2xl font-semibold">{stats?.fraud.riskScore}/100</p>
+          <p className="text-2xl font-semibold">{stats?.fraud?.riskScore || 0}/100</p>
           <p className="text-sm text-red-600">
-            {stats?.fraud.flaggedUsers} suspicious users
+            {stats?.fraud?.flaggedUsers || 0} suspicious users
           </p>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+      {activeTab === 'moderation' ? (
+        <div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <select
@@ -394,7 +491,80 @@ export function AdminDashboard() {
             </tbody>
           </table>
         </div>
-      </div>
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-medium">Authentication Logs</h3>
+              {authStats && (
+                <div className="flex gap-4">
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500">Failed Attempts</p>
+                    <p className="text-xl font-semibold text-red-600">
+                      {authStats.failedAttempts}/{authStats.totalAttempts}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500">Suspicious Patterns</p>
+                    <p className="text-xl font-semibold text-yellow-600">
+                      {authStats.bruteForcePatterns.length}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 dark:bg-gray-800">
+                {authLogTable.getHeaderGroups().map((headerGroup) => (
+                  <tr key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => (
+                      <th
+                        key={header.id}
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
+                        <div className="flex items-center gap-2">
+                          {flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                          {header.column.getIsSorted() && (
+                            header.column.getIsSorted() === 'asc' ? (
+                              <ChevronUp className="w-4 h-4" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4" />
+                            )
+                          )}
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                ))}
+              </thead>
+              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                {authLogTable.getRowModel().rows.map((row) => (
+                  <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                    {row.getVisibleCells().map((cell) => (
+                      <td
+                        key={cell.id}
+                        className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

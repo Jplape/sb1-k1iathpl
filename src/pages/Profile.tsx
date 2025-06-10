@@ -1,16 +1,17 @@
 import React from 'react';
-import { Settings, Bell, CreditCard } from 'lucide-react';
+import { Bell, CreditCard } from 'lucide-react';
 import { Button } from '../components/ui/Button';
+import { useAuth } from '../contexts/AuthContext';
 
 export function Profile() {
+  const { user } = useAuth();
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">Profile</h1>
-        <Button variant="outline">
-          <Settings className="h-4 w-4 mr-2" />
-          Settings
-        </Button>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+          {user ? `Bonjour ${user.email?.split('@')[0]} !` : 'Profil'}
+        </h1>
       </div>
 
       <div className="bg-white shadow-sm ring-1 ring-gray-900/5 rounded-lg p-6">
@@ -18,8 +19,12 @@ export function Profile() {
           <div className="flex items-center space-x-4">
             <div className="h-12 w-12 rounded-full bg-gray-200" />
             <div>
-              <h2 className="text-lg font-semibold">Guest User</h2>
-              <p className="text-sm text-gray-500">Please sign in to access your profile</p>
+              <h2 className="text-lg font-semibold">
+                {user ? user.email : 'Invité'}
+              </h2>
+              <p className="text-sm text-gray-500">
+                {user ? 'Compte Professionnel' : 'Veuillez vous connecter'}
+              </p>
             </div>
           </div>
 
@@ -30,14 +35,14 @@ export function Profile() {
             </Button>
             <Button variant="outline" className="justify-start">
               <CreditCard className="h-4 w-4 mr-2" />
-              Billing
+              Facturation
             </Button>
           </div>
 
           <div className="border-t pt-6">
-            <h3 className="text-lg font-semibold mb-4">My Listings</h3>
+            <h3 className="text-lg font-semibold mb-4">Mes annonces</h3>
             <div className="text-center text-gray-500 py-8">
-              No listings yet
+              Aucune annonce pour le moment
             </div>
           </div>
         </div>

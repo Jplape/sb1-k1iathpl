@@ -7,36 +7,34 @@
     - Enable MFA configuration
 */
 
--- Create the user account with hashed password
-INSERT INTO auth.users (
-  email,
-  encrypted_password,
-  email_confirmed_at,
-  created_at,
-  updated_at,
-  role,
-  is_super_admin
-)
-SELECT 
-  'jipelap@hotmail.fr',
-  crypt('Pzeejz71%%', gen_salt('bf')),
-  now(),
-  now(),
-  now(),
-  'admin',
-  true
-WHERE NOT EXISTS (
-  SELECT 1 FROM auth.users WHERE email = 'jipelap@hotmail.fr'
-);
-
--- Get the user ID
 DO $$
 DECLARE
   v_user_id uuid;
 BEGIN
-  SELECT id INTO v_user_id
-  FROM auth.users
-  WHERE email = 'jipelap@hotmail.fr';
+  -- Create the user account with hashed password and explicit UUID
+  INSERT INTO auth.users (
+    id,
+    email,
+    encrypted_password,
+    email_confirmed_at,
+    created_at,
+    updated_at,
+    role,
+    is_super_admin
+  )
+  SELECT
+    gen_random_uuid(),
+    'jipelap@hotmail.fr',
+    crypt('Pzeejz71%%', gen_salt('bf')),
+    now(),
+    now(),
+    now(),
+    'admin',
+    true
+  WHERE NOT EXISTS (
+    SELECT 1 FROM auth.users WHERE email = 'jipelap@hotmail.fr'
+  )
+  RETURNING id INTO v_user_id;
 
   -- Create profile with admin role
   INSERT INTO public.profiles (
@@ -63,7 +61,7 @@ BEGIN
     admin_id
   )
   VALUES (
-    'approval',  -- Changed from 'admin_creation' to 'approval' to match the check constraint
+    'approval',
     v_user_id,
     'Initial admin account creation',
     v_user_id

@@ -17,8 +17,8 @@ const categories: Category[] = [
   { id: '2', name: 'Véhicules', slug: 'vehicles', icon: <Car className="w-6 h-6" /> },
   { id: '3', name: 'Immobilier', slug: 'real-estate', icon: <HomeIcon className="w-6 h-6" /> },
   { id: '4', name: 'Mode', slug: 'fashion', icon: <Shirt className="w-6 h-6" /> },
-  { id: '5', name: 'Troc', slug: 'barter', icon: <Repeat className="w-6 h-6" /> },
-  { id: '6', name: 'Sport & Loisirs', slug: 'sports', icon: <Football className="w-6 h-6" /> },
+  { id: '5', name: 'Échange', slug: 'swap', icon: <Repeat className="w-6 h-6" /> },
+  { id: '6', name: 'Sports & Loisirs', slug: 'sports-leisure', icon: <Football className="w-6 h-6" /> },
   { id: '7', name: 'Emploi', slug: 'jobs', icon: <Briefcase className="w-6 h-6" /> },
   { id: '8', name: 'Services', slug: 'services', icon: <Wrench className="w-6 h-6" /> },
 ];
@@ -232,7 +232,7 @@ export function Home() {
         </div>
       </section>
 
-      {/* Popular Categories */}
+      {/* Catégories populaires */}
       <section>
         <h2 className="text-2xl font-bold mb-6">Catégories populaires</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">

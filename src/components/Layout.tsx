@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { AuthModal } from './auth/AuthModal';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { cn } from '../lib/utils';
 
 interface NavGroup {
