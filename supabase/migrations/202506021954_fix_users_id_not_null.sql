@@ -1,0 +1,2 @@
+-- Correction de la contrainte NOT NULL sur auth.users.id (désactivée car nécessite des droits admin)
+-- ALTER TABLE auth.users ALTER COLUMN id SET NOT NULL;
